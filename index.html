@@ -1,0 +1,927 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>용수철 깜짝 상자</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- KaTeX CSS & JS (동기 로드) -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"></script>
+    
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        body {
+            font-family: 'Inter', 'Pretendard', sans-serif;
+            background-color: #f8fafc;
+            color: #1e293b;
+        }
+        .math-inline { font-size: 1.05em; }
+        .math-display { font-size: 1.15em; overflow-x: auto; padding: 0.5rem 0; }
+        
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+        
+        /* 스크롤바 스타일링 */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+        .slider-track {
+            accent-color: #3b82f6;
+        }
+        
+        /* 탭 버튼 스타일 */
+        .tab-btn {
+            padding: 0.5rem 1rem;
+            border-bottom: 2px solid transparent;
+            transition: all 0.2s;
+        }
+        .tab-btn.active {
+            border-bottom: 2px solid #3b82f6;
+            color: #2563eb;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col p-4 md:p-6 lg:p-8 max-w-7xl mx-auto space-y-6">
+
+    <!-- Header -->
+    <header class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+        <h1 class="text-3xl font-bold text-slate-800 mb-2">용수철 깜짝 상자</h1>
+        <p class="text-lg font-medium text-blue-600 mb-1">인형을 더 빠르게 나오게 하려면 어떤 용수철을 사용해야 할까?</p>
+        <p class="text-slate-600">용수철의 종류뿐 아니라 인형의 질량과 용수철의 압축 거리도 함께 고려해 보세요.</p>
+    </header>
+
+    <!-- Main Content Grid -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        
+        <!-- Left Panel: Controls -->
+        <div class="lg:col-span-4 flex flex-col gap-4">
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
+                <h2 class="text-xl font-bold mb-4">용수철 선택</h2>
+                <div class="grid grid-cols-3 gap-3 mb-6">
+                    <button id="btn-spring-A" class="spring-btn border-2 border-slate-200 rounded-xl p-3 flex flex-col items-center hover:border-blue-300 transition-colors" onclick="selectSpring('A', 20)">
+                        <span class="font-bold text-lg">A</span>
+                        <span class="text-sm text-slate-500 math-inline">k=20\,\mathrm{N/m}</span>
+                    </button>
+                    <button id="btn-spring-B" class="spring-btn border-2 border-blue-500 bg-blue-50 rounded-xl p-3 flex flex-col items-center transition-colors" onclick="selectSpring('B', 50)">
+                        <span class="font-bold text-lg">B</span>
+                        <span class="text-sm text-slate-500 math-inline">k=50\,\mathrm{N/m}</span>
+                    </button>
+                    <button id="btn-spring-C" class="spring-btn border-2 border-slate-200 rounded-xl p-3 flex flex-col items-center hover:border-blue-300 transition-colors" onclick="selectSpring('C', 100)">
+                        <span class="font-bold text-lg">C</span>
+                        <span class="text-sm text-slate-500 math-inline">k=100\,\mathrm{N/m}</span>
+                    </button>
+                </div>
+
+                <h2 class="text-xl font-bold mb-4">조건 설정</h2>
+                
+                <!-- k Slider -->
+                <div class="mb-4">
+                    <div class="flex justify-between mb-1">
+                        <label class="font-medium text-slate-700">용수철 상수 <span class="math-inline">k</span></label>
+                        <span id="val-label-k" class="font-bold text-blue-600 math-inline">50\,\mathrm{N/m}</span>
+                    </div>
+                    <input type="range" id="slider-k" min="10" max="150" step="5" value="50" class="w-full slider-track" oninput="updateStateFromUI()">
+                </div>
+                
+                <!-- m Slider -->
+                <div class="mb-4">
+                    <div class="flex justify-between mb-1">
+                        <label class="font-medium text-slate-700">인형의 질량 <span class="math-inline">m</span></label>
+                        <span id="val-label-m" class="font-bold text-blue-600 math-inline">0.30\,\mathrm{kg}</span>
+                    </div>
+                    <input type="range" id="slider-m" min="0.10" max="1.00" step="0.05" value="0.30" class="w-full slider-track" oninput="updateStateFromUI()">
+                </div>
+                
+                <!-- A Slider -->
+                <div class="mb-6">
+                    <div class="flex justify-between mb-1">
+                        <label class="font-medium text-slate-700">압축 거리 <span class="math-inline">A</span></label>
+                        <span id="val-label-A" class="font-bold text-blue-600 math-inline">0.15\,\mathrm{m}</span>
+                    </div>
+                    <input type="range" id="slider-A" min="0.05" max="0.30" step="0.01" value="0.15" class="w-full slider-track" oninput="updateStateFromUI()">
+                </div>
+
+                <div class="p-4 bg-slate-50 rounded-xl border border-slate-100 text-sm">
+                    <div class="font-bold mb-2 text-slate-700">초기 예측값:</div>
+                    <div id="calc-preview" class="space-y-1 text-slate-600">
+                        <!-- KaTeX math inserted here by JS -->
+                    </div>
+                </div>
+            </div>
+            
+            <div class="bg-indigo-50 border border-indigo-100 rounded-2xl p-5 flex flex-col gap-3">
+                <h3 class="font-bold text-indigo-800">예상해 보기</h3>
+                <p class="text-sm text-indigo-700">상자를 열기 전, 이전 실험보다 인형의 초기 가속도와 최대 속력이 어떻게 될지 생각해 보세요.</p>
+                <button onclick="alert('예상 기능은 2차 개발에서 지원됩니다. 조건을 직접 비교해 보세요!')" class="bg-indigo-600 text-white rounded-lg py-2 font-medium hover:bg-indigo-700 transition">예상 기록하기</button>
+            </div>
+        </div>
+
+        <!-- Center Panel: Simulation -->
+        <div class="lg:col-span-5 flex flex-col gap-4">
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden relative" style="height: 480px;">
+                <canvas id="sim-canvas"></canvas>
+                <!-- Simulation Controls -->
+                <div class="absolute bottom-4 left-0 right-0 flex justify-center gap-3 px-4">
+                    <button id="btn-play" onclick="togglePlay()" class="bg-blue-600 text-white px-6 py-3 rounded-full font-bold shadow-lg hover:bg-blue-700 transition-colors min-w-[120px]">
+                        상자 열기
+                    </button>
+                    <button onclick="resetSimulation()" class="bg-white text-slate-700 border border-slate-300 px-6 py-3 rounded-full font-bold shadow-lg hover:bg-slate-50 transition-colors">
+                        초기화
+                    </button>
+                </div>
+                <!-- Legend -->
+                <div class="absolute top-4 left-4 bg-white/80 backdrop-blur text-xs p-2 rounded border border-slate-200 shadow-sm pointer-events-none">
+                    <div class="flex items-center gap-2"><div class="w-3 h-3 bg-red-500 rounded-full"></div>복원력 (F)</div>
+                    <div class="flex items-center gap-2"><div class="w-3 h-3 bg-orange-500 rounded-full"></div>가속도 (a)</div>
+                    <div class="flex items-center gap-2"><div class="w-3 h-3 bg-green-500 rounded-full"></div>속도 (v)</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Panel: Real-time Values -->
+        <div class="lg:col-span-3 flex flex-col gap-4">
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 h-full">
+                <h2 class="text-xl font-bold mb-4 flex items-center justify-between">
+                    <span>실시간 물리량</span>
+                    <span id="rt-time" class="text-sm font-normal bg-slate-100 px-2 py-1 rounded text-slate-600 font-mono">t = 0.00 s</span>
+                </h2>
+                
+                <div class="grid grid-cols-2 gap-3">
+                    <!-- Displacement -->
+                    <div class="bg-slate-50 p-3 rounded-xl border border-slate-100 flex flex-col">
+                        <span class="text-xs font-bold text-slate-500 mb-1">변위 <span class="math-inline">x</span></span>
+                        <span id="rt-x" class="text-lg font-bold text-blue-600 font-mono">0.00 m</span>
+                    </div>
+                    <!-- Velocity -->
+                    <div class="bg-slate-50 p-3 rounded-xl border border-slate-100 flex flex-col">
+                        <span class="text-xs font-bold text-slate-500 mb-1">속도 <span class="math-inline">v</span></span>
+                        <span id="rt-v" class="text-lg font-bold text-green-600 font-mono">0.00 m/s</span>
+                    </div>
+                    <!-- Acceleration -->
+                    <div class="bg-slate-50 p-3 rounded-xl border border-slate-100 flex flex-col">
+                        <span class="text-xs font-bold text-slate-500 mb-1">가속도 <span class="math-inline">a</span></span>
+                        <span id="rt-a" class="text-lg font-bold text-orange-600 font-mono">0.00 m/s²</span>
+                    </div>
+                    <!-- Force -->
+                    <div class="bg-slate-50 p-3 rounded-xl border border-slate-100 flex flex-col">
+                        <span class="text-xs font-bold text-slate-500 mb-1">복원력 <span class="math-inline">F</span></span>
+                        <span id="rt-F" class="text-lg font-bold text-red-600 font-mono">0.00 N</span>
+                    </div>
+                    
+                    <div class="col-span-2 border-t border-slate-100 my-1"></div>
+                    
+                    <!-- Elastic Energy -->
+                    <div class="bg-slate-50 p-3 rounded-xl border border-slate-100 flex flex-col">
+                        <span class="text-xs font-bold text-slate-500 mb-1">퍼텐셜 에너지 <span class="math-inline">U_{\mathrm{s}}</span></span>
+                        <span id="rt-Us" class="text-lg font-bold text-purple-600 font-mono">0.00 J</span>
+                    </div>
+                    <!-- Kinetic Energy -->
+                    <div class="bg-slate-50 p-3 rounded-xl border border-slate-100 flex flex-col">
+                        <span class="text-xs font-bold text-slate-500 mb-1">운동 에너지 <span class="math-inline">K</span></span>
+                        <span id="rt-K" class="text-lg font-bold text-teal-600 font-mono">0.00 J</span>
+                    </div>
+                    <!-- Total Energy -->
+                    <div class="col-span-2 bg-slate-800 p-3 rounded-xl border border-slate-700 flex flex-col">
+                        <span class="text-xs font-bold text-slate-300 mb-1">역학적 에너지 <span class="math-inline">E</span></span>
+                        <span id="rt-E" class="text-xl font-bold text-white font-mono">0.00 J</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Graphs and Table Section -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-2">
+        <!-- Graphs -->
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
+            <div class="flex justify-between items-center mb-4 border-b border-slate-200 pb-2">
+                <h2 class="text-xl font-bold">그래프 분석</h2>
+                <div class="flex space-x-2 text-sm">
+                    <button class="tab-btn active" onclick="changeChart('xt')" id="tab-xt"><span class="math-inline">x-t</span></button>
+                    <button class="tab-btn" onclick="changeChart('vt')" id="tab-vt"><span class="math-inline">v-t</span></button>
+                    <button class="tab-btn" onclick="changeChart('at')" id="tab-at"><span class="math-inline">a-t</span></button>
+                    <button class="tab-btn" onclick="changeChart('Et')" id="tab-Et">에너지</button>
+                </div>
+            </div>
+            <div class="relative w-full h-[300px]">
+                <canvas id="main-chart"></canvas>
+            </div>
+        </div>
+
+        <!-- Experiments Table -->
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 flex flex-col">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-bold">실험 결과 비교표</h2>
+                <button onclick="clearExperiments()" class="text-sm text-red-500 hover:text-red-700 font-medium px-3 py-1 rounded bg-red-50 hover:bg-red-100 transition">기록 초기화</button>
+            </div>
+            <div class="overflow-x-auto flex-grow">
+                <table class="w-full text-sm text-left">
+                    <thead class="text-xs text-slate-500 bg-slate-50 uppercase border-b border-slate-200">
+                        <tr>
+                            <th class="px-4 py-3 text-center">실험</th>
+                            <th class="px-4 py-3 text-right"><span class="math-inline">k</span> (N/m)</th>
+                            <th class="px-4 py-3 text-right"><span class="math-inline">m</span> (kg)</th>
+                            <th class="px-4 py-3 text-right"><span class="math-inline">A</span> (m)</th>
+                            <th class="px-4 py-3 text-right"><span class="math-inline">a_{\max}</span> (m/s²)</th>
+                            <th class="px-4 py-3 text-right"><span class="math-inline">v_{\max}</span> (m/s)</th>
+                            <th class="px-4 py-3 text-right">에너지 (J)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="table-body" class="divide-y divide-slate-100">
+                        <!-- Table rows will be generated here -->
+                        <tr><td colspan="7" class="px-4 py-8 text-center text-slate-400">운동이 완료되면 결과가 기록됩니다. (최대 3개)</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="mt-4 p-4 bg-slate-50 rounded-xl border border-slate-200">
+                <p class="text-sm text-slate-700 mb-2 font-medium">탐구 결론 작성하기</p>
+                <div class="text-sm bg-white p-3 border border-slate-200 rounded text-slate-600">
+                    인형의 질량과 압축 거리가 같다면, 용수철 상수 <span class="math-inline">k</span>가 
+                    <select class="border border-slate-300 rounded px-1 text-slate-800 font-bold bg-slate-50"><option>큰</option><option>작은</option></select> 
+                    용수철을 사용해야 인형이 더 빠르게 나옵니다.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript Logic -->
+    <script>
+        /* --- Physics & State Management --- */
+        const G = 9.8; // 중력가속도
+        
+        let state = {
+            k: 50,
+            m: 0.30,
+            A: 0.15,
+            
+            time: 0,
+            x: 0,
+            v: 0,
+            a: 0,
+            F: 0,
+            Us: 0,
+            K: 0,
+            E: 0,
+            
+            status: 'ready', // ready, running, projectile, ended
+            t_release: 0,
+            v_release: 0,
+            
+            // 데이터 기록 배열
+            history: { t: [], x: [], v: [], a: [], F: [], Us: [], K: [], E: [] }
+        };
+
+        let experiments = [];
+        let animationFrameId = null;
+        let lastTimestamp = 0;
+        
+        // Chart Objects
+        let mainChart = null;
+        let currentChartMode = 'xt'; // xt, vt, at, Et
+
+        /* --- Initialization --- */
+        document.addEventListener('DOMContentLoaded', () => {
+            // KaTeX 및 Chart.js가 로드될 시간을 줌 (동기 로드라 즉시 실행 가능)
+            setTimeout(() => {
+                initMath();
+                initChart();
+                updateStateFromUI();
+                renderCanvas(); // 최초 화면 렌더링
+            }, 100);
+        });
+
+        function initMath() {
+            if (typeof renderMathInElement !== 'undefined') {
+                renderMathInElement(document.body, {
+                    delimiters: [
+                        {left: "\\[", right: "\\]", display: true},
+                        {left: "\\(", right: "\\)", display: false}
+                    ],
+                    throwOnError: false
+                });
+            }
+            // 수동 렌더링이 필요한 클래스
+            document.querySelectorAll('.math-inline').forEach(el => {
+                if(!el.dataset.rendered) {
+                    try {
+                        katex.render(el.innerText, el, { displayMode: false, throwOnError: false });
+                        el.dataset.rendered = true;
+                    } catch(e) { console.warn(e); }
+                }
+            });
+        }
+
+        function reRenderMath(containerId) {
+            const container = document.getElementById(containerId);
+            if (!container) return;
+            // 내부의 .math-inline 클래스 요소를 찾아서 다시 렌더링
+            container.querySelectorAll('.math-inline').forEach(el => {
+                try {
+                    katex.render(el.getAttribute('data-tex') || el.innerText, el, { displayMode: false, throwOnError: false });
+                } catch(e) { console.warn(e); }
+            });
+        }
+
+        /* --- UI Controls --- */
+        function selectSpring(type, kVal) {
+            // 버튼 시각적 업데이트
+            document.querySelectorAll('.spring-btn').forEach(btn => {
+                btn.classList.remove('border-blue-500', 'bg-blue-50');
+                btn.classList.add('border-slate-200');
+            });
+            const selectedBtn = document.getElementById(`btn-spring-${type}`);
+            selectedBtn.classList.remove('border-slate-200');
+            selectedBtn.classList.add('border-blue-500', 'bg-blue-50');
+
+            // 슬라이더 업데이트
+            document.getElementById('slider-k').value = kVal;
+            updateStateFromUI();
+        }
+
+        function updateStateFromUI() {
+            if (state.status !== 'ready') return; // 실행 중엔 변경 불가
+
+            const k = parseFloat(document.getElementById('slider-k').value);
+            const m = parseFloat(document.getElementById('slider-m').value);
+            const A = parseFloat(document.getElementById('slider-A').value);
+
+            state.k = k;
+            state.m = m;
+            state.A = A;
+            
+            // 초기 위치 및 값 설정
+            state.time = 0;
+            state.x = -A;
+            state.v = 0;
+            state.a = (k * A) / m;
+            state.F = k * A; // F = -kx = -k(-A)
+            
+            state.Us = 0.5 * k * A * A;
+            state.K = 0;
+            state.E = state.Us;
+
+            state.history = { t: [], x: [], v: [], a: [], F: [], Us: [], K: [], E: [] };
+
+            updateLabelsAndPreview();
+            updateRealtimePanel();
+            renderCanvas();
+            clearChart();
+        }
+
+        function updateLabelsAndPreview() {
+            // 라벨 업데이트 (수식 리렌더링을 위해 data-tex 활용)
+            const lblK = document.getElementById('val-label-k');
+            lblK.setAttribute('data-tex', `${state.k.toFixed(0)}\\,\\mathrm{N/m}`);
+            
+            const lblM = document.getElementById('val-label-m');
+            lblM.setAttribute('data-tex', `${state.m.toFixed(2)}\\,\\mathrm{kg}`);
+            
+            const lblA = document.getElementById('val-label-A');
+            lblA.setAttribute('data-tex', `${state.A.toFixed(2)}\\,\\mathrm{m}`);
+
+            reRenderMath('val-label-k');
+            reRenderMath('val-label-m');
+            reRenderMath('val-label-A');
+
+            // 예측 수식 렌더링
+            const a_max = (state.k * state.A) / state.m;
+            const v_max = state.A * Math.sqrt(state.k / state.m);
+            const E_tot = 0.5 * state.k * state.A * state.A;
+
+            const previewDiv = document.getElementById('calc-preview');
+            previewDiv.innerHTML = `
+                <div class="math-inline" data-tex="a_{\\max} = \\frac{kA}{m} = ${a_max.toFixed(1)}\\,\\mathrm{m/s^2}"></div>
+                <div class="math-inline" data-tex="v_{\\max} = A\\sqrt{\\frac{k}{m}} = ${v_max.toFixed(2)}\\,\\mathrm{m/s}"></div>
+                <div class="math-inline" data-tex="E = \\frac{1}{2}kA^2 = ${E_tot.toFixed(2)}\\,\\mathrm{J}"></div>
+            `;
+            reRenderMath('calc-preview');
+        }
+
+        function updateRealtimePanel() {
+            // 소수점 2자리로 표시, 너무 작은 값은 0 처리
+            const format = (val) => Math.abs(val) < 1e-4 ? "0.00" : val.toFixed(2);
+
+            document.getElementById('rt-time').innerText = `t = ${format(state.time)} s`;
+            document.getElementById('rt-x').innerText = `${format(state.x)} m`;
+            document.getElementById('rt-v').innerText = `${format(state.v)} m/s`;
+            document.getElementById('rt-a').innerText = `${format(state.a)} m/s²`;
+            document.getElementById('rt-F').innerText = `${format(state.F)} N`;
+            document.getElementById('rt-Us').innerText = `${format(state.Us)} J`;
+            document.getElementById('rt-K').innerText = `${format(state.K)} J`;
+            document.getElementById('rt-E').innerText = `${format(state.E)} J`;
+        }
+
+        /* --- Simulation Engine --- */
+        function togglePlay() {
+            const btn = document.getElementById('btn-play');
+            
+            if (state.status === 'ready') {
+                // 시작
+                state.status = 'running';
+                btn.innerText = "일시 정지";
+                btn.classList.replace('bg-blue-600', 'bg-orange-500');
+                btn.classList.replace('hover:bg-blue-700', 'hover:bg-orange-600');
+                
+                // 입력 비활성화
+                document.getElementById('slider-k').disabled = true;
+                document.getElementById('slider-m').disabled = true;
+                document.getElementById('slider-A').disabled = true;
+                
+                lastTimestamp = performance.now();
+                animationFrameId = requestAnimationFrame(gameLoop);
+                
+                // 첫 데이터 기록
+                recordDataPoint();
+                
+            } else if (state.status === 'running' || state.status === 'projectile') {
+                // 일시정지
+                state.status = 'paused_' + state.status;
+                btn.innerText = "계속";
+                btn.classList.replace('bg-orange-500', 'bg-blue-600');
+                btn.classList.replace('hover:bg-orange-600', 'hover:bg-blue-700');
+                cancelAnimationFrame(animationFrameId);
+                
+            } else if (state.status.startsWith('paused')) {
+                // 계속
+                state.status = state.status.replace('paused_', '');
+                btn.innerText = "일시 정지";
+                btn.classList.replace('bg-blue-600', 'bg-orange-500');
+                btn.classList.replace('hover:bg-blue-700', 'hover:bg-orange-600');
+                
+                lastTimestamp = performance.now();
+                animationFrameId = requestAnimationFrame(gameLoop);
+            }
+        }
+
+        function resetSimulation() {
+            cancelAnimationFrame(animationFrameId);
+            state.status = 'ready';
+            
+            const btn = document.getElementById('btn-play');
+            btn.innerText = "상자 열기";
+            btn.classList.remove('bg-orange-500', 'bg-slate-400', 'hover:bg-orange-600');
+            btn.classList.add('bg-blue-600', 'hover:bg-blue-700');
+            btn.disabled = false;
+
+            document.getElementById('slider-k').disabled = false;
+            document.getElementById('slider-m').disabled = false;
+            document.getElementById('slider-A').disabled = false;
+
+            updateStateFromUI();
+        }
+
+        function gameLoop(timestamp) {
+            if (state.status.startsWith('paused') || state.status === 'ended' || state.status === 'ready') return;
+            
+            let dt = (timestamp - lastTimestamp) / 1000; // 초 단위
+            if (dt > 0.1) dt = 0.1; // 브라우저 백그라운드 멈춤 방지
+            lastTimestamp = timestamp;
+
+            // 시뮬레이션 속도 조절 (1배속)
+            state.time += dt;
+
+            // 물리 계산
+            const w = Math.sqrt(state.k / state.m); // 각진동수
+            
+            if (state.status === 'running') {
+                // 이상적 단진동 (x <= 0 구간)
+                // 초기조건 x(0) = -A, v(0) = 0
+                state.x = -state.A * Math.cos(w * state.time);
+                state.v = state.A * w * Math.sin(w * state.time);
+                state.a = state.A * w * w * Math.cos(w * state.time);
+                state.F = -state.k * state.x;
+                
+                // 평형 위치 (x=0) 도달 시 분리
+                if (state.x >= 0) {
+                    state.status = 'projectile';
+                    state.x = 0;
+                    state.t_release = state.time;
+                    state.v_release = state.A * w; // v_max
+                    state.v = state.v_release;
+                    state.a = -G; // 중력만 작용
+                    state.F = 0;
+                }
+            } 
+            
+            if (state.status === 'projectile') {
+                // 용수철 분리 후 수직 투사체 운동 (상자 밖으로 튀어오름)
+                let t_proj = state.time - state.t_release;
+                state.x = (state.v_release * t_proj) - (0.5 * G * t_proj * t_proj);
+                state.v = state.v_release - (G * t_proj);
+                state.a = -G;
+                state.F = 0;
+                
+                // 상자로 다시 떨어지면(x < 0) 종료
+                if (state.x < 0) {
+                    state.x = 0;
+                    state.v = 0;
+                    endSimulation();
+                }
+            }
+
+            // 에너지 계산
+            if (state.status === 'running') {
+                state.Us = 0.5 * state.k * state.x * state.x;
+            } else {
+                state.Us = 0; // 분리 후 용수철 에너지는 인형에 영향을 안줌. (용수철 자체는 자연길이에서 멈춘다고 가정)
+            }
+            
+            // 인형의 운동에너지 + 중력퍼텐셜 에너지 (분리 후)
+            // 여기서는 단순 비교를 위해 평형위치(x=0)를 기준으로 함.
+            state.K = 0.5 * state.m * state.v * state.v;
+            
+            if (state.status === 'running') {
+                state.E = state.K + state.Us;
+            } else {
+                // 투사체 운동 중 역학적 에너지 = K + mgh (h=x)
+                state.E = state.K + (state.m * G * state.x); 
+            }
+
+            // 데이터 기록 및 UI 업데이트
+            recordDataPoint();
+            updateRealtimePanel();
+            renderCanvas();
+            updateChartRealtime();
+
+            if (state.status !== 'ended') {
+                animationFrameId = requestAnimationFrame(gameLoop);
+            }
+        }
+
+        function endSimulation() {
+            state.status = 'ended';
+            
+            const btn = document.getElementById('btn-play');
+            btn.innerText = "운동 종료";
+            btn.classList.replace('bg-orange-500', 'bg-slate-400');
+            btn.classList.replace('hover:bg-orange-600', 'bg-slate-400');
+            btn.disabled = true;
+
+            // 결과 기록
+            addExperimentResult();
+        }
+
+        function recordDataPoint() {
+            // 프레임이 너무 많아지지 않게 초당 ~20-30번만 기록
+            const lastT = state.history.t.length > 0 ? state.history.t[state.history.t.length-1] : -1;
+            if (state.time - lastT > 0.03 || state.time === 0) {
+                state.history.t.push(state.time);
+                state.history.x.push(state.x);
+                state.history.v.push(state.v);
+                state.history.a.push(state.a);
+                state.history.F.push(state.F);
+                state.history.Us.push(state.Us);
+                state.history.K.push(state.K);
+                state.history.E.push(state.E);
+            }
+        }
+
+        /* --- Canvas Rendering --- */
+        function renderCanvas() {
+            const canvas = document.getElementById('sim-canvas');
+            const ctx = canvas.getContext('2d');
+            
+            // 해상도 보정
+            const rect = canvas.parentElement.getBoundingClientRect();
+            canvas.width = rect.width;
+            canvas.height = rect.height;
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            const W = canvas.width;
+            const H = canvas.height;
+            const cx = W / 2;
+            
+            // 좌표계: 바닥에서 약간 위를 용수철 고정점, 그 위를 평형위치(x=0)로 설정
+            const bottomY = H - 40;
+            const pxPerMeter = 400; // 1m = 400픽셀
+            
+            // 평형 위치 Y 픽셀 (자연 길이 상태일 때 인형 중심부의 위치)
+            const eqY = bottomY - 150; 
+            
+            // 현재 인형의 화면상 Y 좌표 (x가 양수면 위로, 음수면 아래로)
+            const dollY = eqY - (state.x * pxPerMeter); 
+
+            // 1. 상자 및 배경 그리기
+            ctx.fillStyle = '#f8fafc'; // 배경색
+            ctx.fillRect(0, 0, W, H);
+            
+            // 상자 뒷면
+            ctx.fillStyle = '#e2e8f0';
+            ctx.fillRect(cx - 60, bottomY - 180, 120, 180);
+            
+            // 평형 위치 점선
+            ctx.beginPath();
+            ctx.strokeStyle = '#94a3b8';
+            ctx.setLineDash([5, 5]);
+            ctx.moveTo(cx - 100, eqY);
+            ctx.lineTo(cx + 100, eqY);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            
+            ctx.fillStyle = '#64748b';
+            ctx.font = '12px Inter';
+            ctx.fillText('평형 위치 (x=0)', cx + 110, eqY + 4);
+
+            // 2. 용수철 그리기
+            // 분리되었을 때는 용수철은 평형위치(eqY)에 머문다.
+            const springTopY = state.status === 'projectile' || state.status === 'ended' ? eqY : dollY;
+            
+            drawSpring(ctx, cx, bottomY, springTopY, 15, state.k);
+
+            // 3. 인형 그리기
+            const dollSize = 40 + (state.m * 20); // 질량에 따라 크기 약간 변화
+            
+            ctx.fillStyle = '#facc15'; // 노란색 인형
+            ctx.beginPath();
+            // 중심을 dollY, 바닥이 용수철에 닿게
+            ctx.arc(cx, dollY - (dollSize/2), dollSize/2, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.strokeStyle = '#ca8a04';
+            ctx.lineWidth = 3;
+            ctx.stroke();
+            
+            // 인형 눈/입
+            ctx.fillStyle = '#333';
+            ctx.beginPath(); ctx.arc(cx - 10, dollY - (dollSize/2) - 5, 3, 0, Math.PI*2); ctx.fill();
+            ctx.beginPath(); ctx.arc(cx + 10, dollY - (dollSize/2) - 5, 3, 0, Math.PI*2); ctx.fill();
+            ctx.beginPath(); ctx.arc(cx, dollY - (dollSize/2) + 8, 6, 0, Math.PI, false); ctx.stroke();
+
+            // 상자 앞면 (인형을 가리는 효과)
+            ctx.fillStyle = '#cbd5e1';
+            ctx.fillRect(cx - 60, bottomY - 100, 120, 100);
+            // 뚜껑
+            if (state.status === 'ready') {
+                // 닫힌 뚜껑
+                ctx.fillStyle = '#94a3b8';
+                ctx.fillRect(cx - 65, dollY - dollSize - 10, 130, 10);
+            } else {
+                // 열린 뚜껑
+                ctx.save();
+                ctx.translate(cx - 60, bottomY - 180);
+                ctx.rotate(-Math.PI / 3);
+                ctx.fillStyle = '#94a3b8';
+                ctx.fillRect(-5, -5, 10, 130);
+                ctx.restore();
+            }
+
+            // 4. 화살표 그리기 (벡터)
+            if (state.status === 'running' || state.status === 'projectile') {
+                const arrowX = cx + 50; // 인형 옆에 표시
+                const arrowY = dollY - (dollSize/2);
+                
+                // 가속도 (주황색)
+                if (Math.abs(state.a) > 0.5) {
+                    drawArrow(ctx, arrowX + 30, arrowY, state.a * -2, '#f97316'); // 위쪽이 +y, 캔버스는 -y이므로 방향 반전
+                }
+                // 속도 (초록색)
+                if (Math.abs(state.v) > 0.1) {
+                    drawArrow(ctx, arrowX, arrowY, state.v * -15, '#22c55e');
+                }
+                // 힘 (빨간색)
+                if (Math.abs(state.F) > 0.5) {
+                    drawArrow(ctx, cx - 60, arrowY, state.F * -2, '#ef4444');
+                }
+            }
+        }
+
+        function drawSpring(ctx, x, yBottom, yTop, width, k) {
+            ctx.beginPath();
+            ctx.strokeStyle = k > 80 ? '#475569' : (k > 40 ? '#94a3b8' : '#cbd5e1'); // k에 따라 색과 굵기
+            ctx.lineWidth = k > 80 ? 4 : (k > 40 ? 3 : 2);
+            
+            const loops = 10;
+            const h = (yBottom - yTop) / loops;
+            
+            ctx.moveTo(x, yBottom);
+            for (let i = 0; i < loops; i++) {
+                const currentY = yBottom - (h * i);
+                if (i % 2 === 0) {
+                    ctx.lineTo(x - width, currentY - h/2);
+                } else {
+                    ctx.lineTo(x + width, currentY - h/2);
+                }
+            }
+            ctx.lineTo(x, yTop);
+            ctx.stroke();
+        }
+
+        function drawArrow(ctx, x, y, dy, color) {
+            if (Math.abs(dy) < 2) return;
+            // 길이 제한
+            if (dy > 80) dy = 80;
+            if (dy < -80) dy = -80;
+
+            ctx.beginPath();
+            ctx.strokeStyle = color;
+            ctx.fillStyle = color;
+            ctx.lineWidth = 3;
+            
+            ctx.moveTo(x, y);
+            ctx.lineTo(x, y + dy);
+            ctx.stroke();
+            
+            // 화살촉
+            ctx.beginPath();
+            const sign = dy > 0 ? 1 : -1;
+            ctx.moveTo(x, y + dy);
+            ctx.lineTo(x - 5, y + dy - (10 * sign));
+            ctx.lineTo(x + 5, y + dy - (10 * sign));
+            ctx.closePath();
+            ctx.fill();
+        }
+
+        /* --- Chart.js --- */
+        function initChart() {
+            const ctx = document.getElementById('main-chart').getContext('2d');
+            if (!ctx) return;
+
+            mainChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: []
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: false,
+                    interaction: {
+                        mode: 'index',
+                        intersect: false,
+                    },
+                    scales: {
+                        x: {
+                            type: 'linear',
+                            title: { display: true, text: '시간 (s)' }
+                        },
+                        y: {
+                            title: { display: true, text: '변위 (m)' }
+                        }
+                    },
+                    plugins: {
+                        legend: { position: 'top' }
+                    }
+                }
+            });
+            changeChart('xt'); // 기본 차트 설정
+        }
+
+        function changeChart(mode) {
+            if (!mainChart) return;
+            currentChartMode = mode;
+            
+            // 탭 스타일 변경
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById(`tab-${mode}`).classList.add('active');
+
+            let datasets = [];
+            let yLabel = '';
+            
+            if (mode === 'xt') {
+                datasets = [{ label: '변위 x (m)', data: [], borderColor: '#3b82f6', borderWidth: 2, pointRadius: 0 }];
+                yLabel = '변위 (m)';
+            } else if (mode === 'vt') {
+                datasets = [{ label: '속도 v (m/s)', data: [], borderColor: '#22c55e', borderWidth: 2, pointRadius: 0 }];
+                yLabel = '속도 (m/s)';
+            } else if (mode === 'at') {
+                datasets = [{ label: '가속도 a (m/s²)', data: [], borderColor: '#f97316', borderWidth: 2, pointRadius: 0 }];
+                yLabel = '가속도 (m/s²)';
+            } else if (mode === 'Et') {
+                datasets = [
+                    { label: '퍼텐셜 에너지 (J)', data: [], borderColor: '#a855f7', borderWidth: 2, pointRadius: 0 },
+                    { label: '운동 에너지 (J)', data: [], borderColor: '#14b8a6', borderWidth: 2, pointRadius: 0 },
+                    { label: '역학적 에너지 (J)', data: [], borderColor: '#334155', borderWidth: 2, borderDash: [5,5], pointRadius: 0 }
+                ];
+                yLabel = '에너지 (J)';
+            }
+
+            mainChart.data.datasets = datasets;
+            mainChart.options.scales.y.title.text = yLabel;
+            
+            syncChartData();
+        }
+
+        function clearChart() {
+            if (!mainChart) return;
+            mainChart.data.labels = [];
+            mainChart.data.datasets.forEach(ds => { ds.data = []; });
+            mainChart.update();
+        }
+
+        function syncChartData() {
+            if (!mainChart) return;
+            mainChart.data.labels = state.history.t;
+            
+            if (currentChartMode === 'xt') {
+                mainChart.data.datasets[0].data = state.history.x;
+            } else if (currentChartMode === 'vt') {
+                mainChart.data.datasets[0].data = state.history.v;
+            } else if (currentChartMode === 'at') {
+                mainChart.data.datasets[0].data = state.history.a;
+            } else if (currentChartMode === 'Et') {
+                mainChart.data.datasets[0].data = state.history.Us;
+                mainChart.data.datasets[1].data = state.history.K;
+                mainChart.data.datasets[2].data = state.history.E;
+            }
+            mainChart.update();
+        }
+
+        function updateChartRealtime() {
+            if (!mainChart) return;
+            
+            const i = state.history.t.length - 1;
+            if (i < 0) return;
+
+            // 라벨(시간) 업데이트
+            if (mainChart.data.labels.length <= i) {
+                mainChart.data.labels.push(state.history.t[i]);
+                
+                // 데이터 업데이트
+                if (currentChartMode === 'xt') {
+                    mainChart.data.datasets[0].data.push(state.history.x[i]);
+                } else if (currentChartMode === 'vt') {
+                    mainChart.data.datasets[0].data.push(state.history.v[i]);
+                } else if (currentChartMode === 'at') {
+                    mainChart.data.datasets[0].data.push(state.history.a[i]);
+                } else if (currentChartMode === 'Et') {
+                    mainChart.data.datasets[0].data.push(state.history.Us[i]);
+                    mainChart.data.datasets[1].data.push(state.history.K[i]);
+                    mainChart.data.datasets[2].data.push(state.history.E[i]);
+                }
+            }
+            // 성능 향상을 위해 10프레임마다 차트 리렌더링
+            if (i % 5 === 0 || state.status === 'ended') {
+                mainChart.update();
+            }
+        }
+
+        /* --- Experiments Table --- */
+        function addExperimentResult() {
+            if (experiments.length >= 3) {
+                experiments.shift(); // 오래된 것 삭제
+            }
+
+            const a_max = (state.k * state.A) / state.m;
+            const v_max = state.A * Math.sqrt(state.k / state.m);
+            const E_tot = 0.5 * state.k * state.A * state.A;
+
+            experiments.push({
+                idx: experiments.length > 0 ? experiments[experiments.length-1].idx + 1 : 1,
+                k: state.k,
+                m: state.m,
+                A: state.A,
+                a_max: a_max,
+                v_max: v_max,
+                E: E_tot
+            });
+
+            renderTable();
+        }
+
+        function renderTable() {
+            const tbody = document.getElementById('table-body');
+            tbody.innerHTML = '';
+
+            if (experiments.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="7" class="px-4 py-8 text-center text-slate-400">운동이 완료되면 결과가 기록됩니다. (최대 3개)</td></tr>`;
+                return;
+            }
+
+            experiments.forEach(exp => {
+                const tr = document.createElement('tr');
+                tr.className = "bg-white hover:bg-slate-50 transition";
+                tr.innerHTML = `
+                    <td class="px-4 py-3 text-center font-bold text-slate-700">#${exp.idx}</td>
+                    <td class="px-4 py-3 text-right font-mono">${exp.k.toFixed(0)}</td>
+                    <td class="px-4 py-3 text-right font-mono">${exp.m.toFixed(2)}</td>
+                    <td class="px-4 py-3 text-right font-mono">${exp.A.toFixed(2)}</td>
+                    <td class="px-4 py-3 text-right font-mono text-orange-600 font-bold">${exp.a_max.toFixed(2)}</td>
+                    <td class="px-4 py-3 text-right font-mono text-green-600 font-bold">${exp.v_max.toFixed(2)}</td>
+                    <td class="px-4 py-3 text-right font-mono">${exp.E.toFixed(2)}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function clearExperiments() {
+            experiments = [];
+            renderTable();
+        }
+    </script>
+</body>
+</html>
